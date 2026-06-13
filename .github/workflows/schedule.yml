@@ -1,0 +1,64 @@
+name: RC Wake Check
+
+on:
+  schedule:
+    # GitHub Actions cron is UTC. We list times for BOTH Eastern Daylight (UTC-4)
+    # and Eastern Standard (UTC-5) so the bot stays correct year-round.
+    # The script itself checks the local time and skips if it's not the
+    # right moment, so only ONE of each pair actually does anything.
+
+    # ~9:30 AM Eastern (morning wake-check message)
+    - cron: "30 13 * * 1-5"   # 9:30 AM EDT
+    - cron: "30 14 * * 1-5"   # 9:30 AM EST
+
+    # ~9:55 AM Eastern (summary message)
+    - cron: "55 13 * * 1-5"   # 9:55 AM EDT
+    - cron: "55 14 * * 1-5"   # 9:55 AM EST
+
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Run mode"
+        required: true
+        default: "morning"
+        type: choice
+        options:
+          - morning
+          - summary
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Write Google service account credentials
+        run: echo '${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}' > service_account.json
+
+      - name: Determine mode (manual run)
+        if: github.event_name == 'workflow_dispatch'
+        run: echo "RUN_MODE=${{ github.event.inputs.mode }}" >> "$GITHUB_ENV"
+
+      - name: Determine mode (scheduled run)
+        if: github.event_name == 'schedule'
+        run: |
+          # Cron minute tells us whether this is the "morning" or "summary" trigger
+          MIN=$(date -u +%M)
+          if [ "$MIN" = "30" ]; then
+            echo "RUN_MODE=morning" >> "$GITHUB_ENV"
+          else
+            echo "RUN_MODE=summary" >> "$GITHUB_ENV"
+          fi
+
+      - name: Run bot
+        env:
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          GOOGLE_SERVICE_ACCOUNT_FILE: service_account.json
+        run: python main.py "$RUN_MODE"
