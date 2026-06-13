@@ -1,0 +1,18 @@
+{
+  "discord_channel_id": "PUT_DISCORD_CHANNEL_ID_HERE",
+  "discord_guild_id": "PUT_DISCORD_SERVER_ID_HERE",
+  "meeting_time": "10:00",
+  "trip_cutoff_time": "11:00",
+  "wake_check_emoji": "\u2705",
+
+  "timezone": "America/New_York",
+  "morning_time": "09:30",
+  "summary_time": "09:55",
+  "time_tolerance_minutes": 12,
+
+  "field_trip_spreadsheet_id": "PUT_FIELD_TRIP_SHEET_ID_HERE",
+  "config_spreadsheet_id": "PUT_CONFIG_SHEET_ID_HERE",
+
+  "morning_message": "Good morning! Please react with \u2705 to this message to confirm you're awake. (Reminder: meeting at 10AM)",
+  "summary_header": "RC Wake Check Summary"
+}
