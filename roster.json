@@ -1,0 +1,28 @@
+{
+  "roster": [
+    {"name": "Cristobal Martinez", "discord_username": "crisdagato"},
+    {"name": "Gavin Neville", "discord_username": "g_nev_"},
+    {"name": "Nathaniel Cha", "discord_username": "natesmiling14"},
+    {"name": "Aidan Flynn", "discord_username": "aidanflynn2006"},
+    {"name": "Caleb DeLorenzo", "discord_username": "calebdelorenzo"},
+    {"name": "Cian Lynch", "discord_username": "cayenne28"},
+    {"name": "Connor Farrell", "discord_username": "cfarrell2024_96368_52626"},
+    {"name": "Emiliano Rodriguez Gutierrez", "discord_username": "emilianorodriguezgutierrez_61430"},
+    {"name": "James Goggin", "discord_username": "jamesgoggin_1"},
+    {"name": "Luke Cimino", "discord_username": "lukecimino"},
+    {"name": "Nathan Yeh", "discord_username": "nathanyeh.1"},
+    {"name": "Nick Anderson", "discord_username": "nanderson10"},
+    {"name": "Ryan Burns", "discord_username": "ryanburns0518_69027"},
+    {"name": "Ryan Domsalla", "discord_username": "ryandomsalla"},
+    {"name": "Tommy Rafacz", "discord_username": "tommy3635726"}
+  ],
+  "exempt": [
+    {"name": "Shingi Hatirarami", "discord_username": "shingi10"}
+  ],
+  "supervisor": [
+    {"name": "Henry Anderson", "discord_username": "henry3062"}
+  ],
+  "owner": [
+    {"name": "Coleman", "discord_username": "coleman2019"}
+  ]
+}
