@@ -84,8 +84,8 @@ def main():
     creds_path = os.environ.get("GOOGLE_SERVICE_ACCOUNT_FILE", "service_account.json")
 
     client = sheets_helper.get_client(creds_path)
-    config_sheet = client.open_by_key(cfg["config_spreadsheet_id"])
-    trip_sheet = client.open_by_key(cfg["field_trip_spreadsheet_id"])
+    config_sheet = sheets_helper.with_retry(client.open_by_key, cfg["config_spreadsheet_id"])
+    trip_sheet = sheets_helper.with_retry(client.open_by_key, cfg["field_trip_spreadsheet_id"])
 
     roster = roster_cfg["roster"]
     female_roster = roster_cfg.get("female_roster", [])
@@ -265,6 +265,17 @@ def run_summary(cfg, bot_token, config_sheet, roster, supervisor, owner, trip_pe
     print("Posted summary message")
 
 
+def _format_event_block(event, mention_parts):
+    lines = [f"**{event['event_name']}** ({event['time_text']})"]
+    if mention_parts:
+        lines.append(" ".join(mention_parts))
+    if event["transportation"]:
+        lines.append(f"Transportation: {event['transportation']}")
+    if event["notes"]:
+        lines.append(f"Notes: {event['notes']}")
+    return "\n".join(lines)
+
+
 def run_reminders(cfg, bot_token, config_sheet, trip_sheet, all_tracked, alias_map, today, dry_run=False):
     tz = ZoneInfo(cfg["timezone"])
     now = datetime.datetime.now(tz)
@@ -290,8 +301,8 @@ def run_reminders(cfg, bot_token, config_sheet, trip_sheet, all_tracked, alias_m
     if not dry_run:
         username_map = discord_helper.build_username_to_id_map(bot_token, cfg["discord_guild_id"])
 
-    newly_reminded = []
-
+    # Find everything due this run
+    due = []
     for event in schedule:
         event_id = f"{event['event_name']}|{event['start_minutes']}"
         if event_id in reminded:
@@ -304,65 +315,87 @@ def run_reminders(cfg, bot_token, config_sheet, trip_sheet, all_tracked, alias_m
             continue
 
         people = [name_to_person[n] for n in event["people"] if n in name_to_person]
+        due.append((event_id, event, minutes_until, people))
 
-        if dry_run:
+    if not due:
+        print("No new reminders to send this run.")
+        return
+
+    if dry_run:
+        for event_id, event, minutes_until, people in due:
             print(f"=== DRY RUN: would remind for '{event['event_name']}' "
                   f"({event['time_text']}, starts in ~{minutes_until} min) ===")
             print(f"  Transportation: {event['transportation'] or '(none)'}")
             print(f"  Notes: {event['notes'] or '(none)'}")
             print(f"  People: {', '.join(p['name'] for p in people)}")
-            newly_reminded.append(event_id)
-            continue
-
-        mention_parts = []
-        for p in people:
-            uid = username_map.get(p["discord_username"].lower())
-            mention_parts.append(f"<@{uid}>" if uid else f"@{p['discord_username']}")
-
-        channel_msg = (
-            f"\u23f0 **{event['event_name']}** starts in ~{minutes_until} min "
-            f"({event['time_text']})\n"
-            + " ".join(mention_parts)
-        )
-        if event["transportation"]:
-            channel_msg += f"\nTransportation: {event['transportation']}"
-        if event["notes"]:
-            channel_msg += f"\nNotes: {event['notes']}"
-
-        try:
-            discord_helper.post_message(bot_token, cfg["reminder_channel_id"], channel_msg)
-            print(f"Posted reminder for '{event['event_name']}'")
-        except Exception as exc:
-            print(f"Failed to post channel reminder for '{event['event_name']}': {exc}")
-
-        for p in people:
-            uid = username_map.get(p["discord_username"].lower())
-            if not uid:
-                print(f"  No Discord ID found for {p['name']} (@{p['discord_username']}) - skipping DM")
-                continue
-
-            dm_msg = (
-                f"\u23f0 Reminder: **{event['event_name']}** starts in ~{minutes_until} min "
-                f"({event['time_text']})"
-            )
-            if event["transportation"]:
-                dm_msg += f"\nTransportation: {event['transportation']}"
-            if event["notes"]:
-                dm_msg += f"\nNotes: {event['notes']}"
-
-            try:
-                discord_helper.send_dm(bot_token, uid, dm_msg)
-            except Exception as exc:
-                print(f"  Failed to DM {p['name']}: {exc}")
-
-        newly_reminded.append(event_id)
-
-    if newly_reminded:
-        reminded.update(newly_reminded)
+        reminded.update(event_id for event_id, _, _, _ in due)
         sheets_helper.set_state(config_sheet, "reminded_events", json.dumps(sorted(reminded)))
+        return
 
-    if not newly_reminded:
-        print("No new reminders to send this run.")
+    # Group events that start at the same time into one combined channel message
+    groups = {}
+    for event_id, event, minutes_until, people in due:
+        groups.setdefault(event["start_minutes"], []).append((event_id, event, minutes_until, people))
+
+    MAX_LEN = 1800
+
+    for start_minutes, items in sorted(groups.items()):
+        minutes_until = items[0][2]
+        time_label = sheets_helper.minutes_to_time_str(start_minutes)
+        header = f"\u23f0 Trips starting around {time_label} (~{minutes_until} min)"
+
+        blocks = []
+        for _event_id, event, _mu, people in items:
+            mention_parts = []
+            for p in people:
+                uid = username_map.get(p["discord_username"].lower())
+                mention_parts.append(f"<@{uid}>" if uid else f"@{p['discord_username']}")
+            blocks.append(_format_event_block(event, mention_parts))
+
+        # Chunk into multiple messages if the combined text would be too long
+        chunks = []
+        current = [header]
+        current_len = len(header)
+        for block in blocks:
+            if current_len + len(block) + 2 > MAX_LEN and len(current) > 1:
+                chunks.append("\n\n".join(current))
+                current = [header + " (cont.)"]
+                current_len = len(current[0])
+            current.append(block)
+            current_len += len(block) + 2
+        chunks.append("\n\n".join(current))
+
+        for chunk in chunks:
+            try:
+                discord_helper.post_message(bot_token, cfg["reminder_channel_id"], chunk)
+                print(f"Posted reminder for trips at {time_label}")
+            except Exception as exc:
+                print(f"Failed to post channel reminder for trips at {time_label}: {exc}")
+
+        # DMs - one per person per event
+        for _event_id, event, _mu, people in items:
+            for p in people:
+                uid = username_map.get(p["discord_username"].lower())
+                if not uid:
+                    print(f"  No Discord ID found for {p['name']} (@{p['discord_username']}) - skipping DM")
+                    continue
+
+                dm_msg = (
+                    f"\u23f0 Reminder: **{event['event_name']}** starts in ~{minutes_until} min "
+                    f"({event['time_text']})"
+                )
+                if event["transportation"]:
+                    dm_msg += f"\nTransportation: {event['transportation']}"
+                if event["notes"]:
+                    dm_msg += f"\nNotes: {event['notes']}"
+
+                try:
+                    discord_helper.send_dm(bot_token, uid, dm_msg)
+                except Exception as exc:
+                    print(f"  Failed to DM {p['name']}: {exc}")
+
+    reminded.update(event_id for event_id, _, _, _ in due)
+    sheets_helper.set_state(config_sheet, "reminded_events", json.dumps(sorted(reminded)))
 
 
 if __name__ == "__main__":
