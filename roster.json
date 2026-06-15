@@ -16,11 +16,38 @@
     {"name": "Ryan Domsalla", "discord_username": "ryandomsalla"},
     {"name": "Tommy Rafacz", "discord_username": "tommy3635726"}
   ],
-  "exempt": [
-    {"name": "Shingi Hatirarami", "discord_username": "shingi10"}
+  "female_roster": [
+    {"name": "Marie Honore", "discord_username": "marie050827"},
+    {"name": "Alexa Luna", "discord_username": "alexaluna_"},
+    {"name": "Maura McSweeney", "discord_username": "maura.mcsweeney"},
+    {"name": "Anna Hill", "discord_username": "anna_78746"},
+    {"name": "Sophie Villaruz", "discord_username": "sophievillaruz"},
+    {"name": "Autumn Chiu", "discord_username": "autumnchiu70"},
+    {"name": "Delaney Park", "discord_username": "delaneypark"},
+    {"name": "Ellie Grieco", "discord_username": "elliegrieco"},
+    {"name": "Evelyn Kelly", "discord_username": "evelynkelly0673"},
+    {"name": "Holly Schneider", "discord_username": "hollyschneider"},
+    {"name": "Jamie Dunn", "discord_username": "jamiedunn0751"},
+    {"name": "Jenna Gamons", "discord_username": "jennagamons"},
+    {"name": "Jessica Toohig", "discord_username": "jessica_toohig"},
+    {"name": "Kafele O'Brien", "discord_username": "kafeleobrien"},
+    {"name": "Keelin Hamilton", "discord_username": "khamilt7_74044"},
+    {"name": "Lindsey Baehler", "discord_username": "lindseybaehler"},
+    {"name": "Megan Ebinger", "discord_username": "meganebinger_90090"},
+    {"name": "Mia Reilly-Yeh", "discord_username": "mreillyy_89544"},
+    {"name": "Sarah Kuhn", "discord_username": "lyra8833"},
+    {"name": "Sharon Cho", "discord_username": "sharon_yj"}
   ],
   "supervisor": [
     {"name": "Henry Anderson", "discord_username": "henry3062"}
+  ],
+  "other_staff": [
+    {"name": "Shingi Hatirarami", "discord_username": "shingi10"},
+    {"name": "Caroline Pracht", "discord_username": "carolinepracht."},
+    {"name": "Ellie Villaruz", "discord_username": "avillaru17"},
+    {"name": "Megan Crowe", "discord_username": "megancrowe."},
+    {"name": "Katie Swartz", "discord_username": "katielynn7"},
+    {"name": "Hannah Schneider", "discord_username": "hannahs1771"}
   ],
   "owner": [
     {"name": "Coleman", "discord_username": "coleman2019"}
