@@ -6,12 +6,37 @@ Handles Google Sheets interactions:
 """
 
 import re
+import time
 import gspread
 from google.oauth2.service_account import Credentials
 
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 
 WEEKDAY_ABBR = {0: "Mon", 1: "Tues", 2: "Wed", 3: "Thurs", 4: "Fri", 5: "Sat", 6: "Sun"}
+
+
+def with_retry(func, *args, retries=3, delay=3, **kwargs):
+    """
+    Calls func(*args, **kwargs), retrying on transient gspread API errors
+    (e.g. occasional 500/503 'Internal error' responses from Google).
+    """
+    last_exc = None
+    for attempt in range(1, retries + 1):
+        try:
+            return func(*args, **kwargs)
+        except gspread.exceptions.APIError as exc:
+            last_exc = exc
+            status = None
+            try:
+                status = exc.response.status_code
+            except Exception:
+                pass
+            if status is not None and status < 500:
+                raise  # don't retry on 4xx (auth/permission/not-found etc.)
+            if attempt < retries:
+                print(f"Sheets API error (attempt {attempt}/{retries}): {exc} - retrying in {delay}s")
+                time.sleep(delay)
+    raise last_exc
 
 
 def get_client(creds_path="service_account.json"):
@@ -24,8 +49,8 @@ def get_client(creds_path="service_account.json"):
 # ---------------------------------------------------------------------------
 
 def get_state(spreadsheet, key, default=None):
-    ws = spreadsheet.worksheet("BotState")
-    records = ws.get_all_records()
+    ws = with_retry(spreadsheet.worksheet, "BotState")
+    records = with_retry(ws.get_all_records)
     for r in records:
         if str(r.get("Key", "")).strip() == key:
             return str(r.get("Value", "")).strip()
@@ -33,13 +58,13 @@ def get_state(spreadsheet, key, default=None):
 
 
 def set_state(spreadsheet, key, value):
-    ws = spreadsheet.worksheet("BotState")
-    records = ws.get_all_records()
+    ws = with_retry(spreadsheet.worksheet, "BotState")
+    records = with_retry(ws.get_all_records)
     for i, r in enumerate(records):
         if str(r.get("Key", "")).strip() == key:
-            ws.update_cell(i + 2, 2, str(value))
+            with_retry(ws.update_cell, i + 2, 2, str(value))
             return
-    ws.append_row([key, str(value)])
+    with_retry(ws.append_row, [key, str(value)])
 
 
 # ---------------------------------------------------------------------------
@@ -160,7 +185,7 @@ def _find_today_worksheet(spreadsheet, today):
         f"{today.strftime('%a')} {today.day}".lower(),
     }
 
-    for ws in spreadsheet.worksheets():
+    for ws in with_retry(spreadsheet.worksheets):
         if ws.title.strip().lower() in candidates:
             return ws
 
@@ -180,7 +205,7 @@ def get_morning_trip_people(spreadsheet, today, alias_map, cutoff_time_minutes):
     if ws is None:
         return trip_people
 
-    rows = ws.get_all_values()
+    rows = with_retry(ws.get_all_values)
     if not rows:
         return trip_people
 
@@ -258,7 +283,7 @@ def get_day_schedule(spreadsheet, today, alias_map):
     if ws is None:
         return []
 
-    rows = ws.get_all_values()
+    rows = with_retry(ws.get_all_values)
     if not rows:
         return []
 
