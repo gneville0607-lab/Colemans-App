@@ -15,6 +15,11 @@ on:
     - cron: "55 13 * * 1-5"   # 9:55 AM EDT
     - cron: "55 14 * * 1-5"   # 9:55 AM EST
 
+    # Event reminders: every 15 min, broad window covering 7AM-7PM in both
+    # EDT and EST. The script checks the actual local time and exits quickly
+    # if outside reminder_window_start/end in config.json.
+    - cron: "*/15 11-23 * * 1-5"
+
   workflow_dispatch:
     inputs:
       mode:
@@ -25,6 +30,7 @@ on:
         options:
           - morning
           - summary
+          - reminders
       dry_run:
         description: "Dry run (skip Discord, just print/log what would happen)"
         required: true
@@ -56,13 +62,18 @@ jobs:
       - name: Determine mode (scheduled run)
         if: github.event_name == 'schedule'
         run: |
-          # Cron minute tells us whether this is the "morning" or "summary" trigger
-          MIN=$(date -u +%M)
-          if [ "$MIN" = "30" ]; then
-            echo "RUN_MODE=morning" >> "$GITHUB_ENV"
-          else
-            echo "RUN_MODE=summary" >> "$GITHUB_ENV"
-          fi
+          case "${{ github.event.schedule }}" in
+            "30 13 * * 1-5"|"30 14 * * 1-5")
+              echo "RUN_MODE=morning" >> "$GITHUB_ENV"
+              ;;
+            "55 13 * * 1-5"|"55 14 * * 1-5")
+              echo "RUN_MODE=summary" >> "$GITHUB_ENV"
+              ;;
+            *)
+              echo "RUN_MODE=reminders" >> "$GITHUB_ENV"
+              ;;
+          esac
+          echo "DRY_RUN=false" >> "$GITHUB_ENV"
 
       - name: Run bot
         env:
