@@ -91,3 +91,17 @@ def build_username_to_id_map(bot_token, guild_id):
         after = batch[-1]["user"]["id"]
 
     return username_to_id
+
+
+def open_dm_channel(bot_token, user_id):
+    """Opens (or fetches existing) DM channel with a user, returns its ID."""
+    url = f"{API_BASE}/users/@me/channels"
+    resp = requests.post(url, headers=_headers(bot_token), json={"recipient_id": user_id})
+    resp.raise_for_status()
+    return resp.json()["id"]
+
+
+def send_dm(bot_token, user_id, content):
+    """Sends a DM to a user. May fail (raises) if the user has DMs disabled."""
+    channel_id = open_dm_channel(bot_token, user_id)
+    return post_message(bot_token, channel_id, content)
