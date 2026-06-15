@@ -234,3 +234,91 @@ def minutes_to_time_str(total_minutes):
     if h12 == 0:
         h12 = 12
     return f"{h12}:{m:02d} {period}"
+
+
+# ---------------------------------------------------------------------------
+# Full-day schedule (for event reminders)
+# ---------------------------------------------------------------------------
+
+def get_day_schedule(spreadsheet, today, alias_map):
+    """
+    Scans today's tab and returns a list of events:
+      {
+        "event_name": str,
+        "time_text": str,
+        "start_minutes": int,
+        "transportation": str,
+        "notes": str,
+        "people": [full_name, ...]   # sorted, only tracked people
+      }
+    Only includes events that have a parseable start time AND at least one
+    tracked person signed up.
+    """
+    ws = _find_today_worksheet(spreadsheet, today)
+    if ws is None:
+        return []
+
+    rows = ws.get_all_values()
+    if not rows:
+        return []
+
+    headers = [h.strip().lower() for h in rows[0]]
+    try:
+        event_idx = headers.index("event")
+        time_idx = headers.index("time")
+        signup_idx = headers.index("sign up")
+    except ValueError:
+        return []
+
+    transport_idx = headers.index("transportation") if "transportation" in headers else None
+    notes_idx = headers.index("notes") if "notes" in headers else None
+
+    needed_idx = [event_idx, time_idx, signup_idx]
+    if transport_idx is not None:
+        needed_idx.append(transport_idx)
+    if notes_idx is not None:
+        needed_idx.append(notes_idx)
+    max_idx = max(needed_idx)
+
+    events = []
+    current = None
+
+    for row in rows[1:]:
+        if len(row) <= max_idx:
+            row = row + [""] * (max_idx + 1 - len(row))
+
+        event_name = row[event_idx].strip()
+        time_text = row[time_idx].strip()
+
+        if event_name or time_text:
+            parsed = parse_time_range_to_minutes(time_text) if time_text else None
+            current = {
+                "event_name": event_name,
+                "time_text": time_text,
+                "start_minutes": parsed[0] if parsed else None,
+                "transportation": row[transport_idx].strip() if transport_idx is not None else "",
+                "notes": row[notes_idx].strip() if notes_idx is not None else "",
+                "people": set(),
+            }
+            events.append(current)
+
+        signup_text = row[signup_idx].strip()
+        if signup_text and signup_text.upper() != "ALL" and current is not None:
+            for piece in re.split(r"[\n,]", signup_text):
+                piece = piece.strip()
+                if not piece:
+                    continue
+                matched = alias_map.get(normalize(piece))
+                if matched:
+                    current["people"].add(matched)
+
+    result = []
+    for e in events:
+        if e["start_minutes"] is None:
+            continue
+        if not e["people"]:
+            continue
+        e["people"] = sorted(e["people"])
+        result.append(e)
+
+    return result
