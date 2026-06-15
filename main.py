@@ -64,6 +64,10 @@ def main():
     roster_cfg = load_json("roster.json")
     dry_run = os.environ.get("DRY_RUN", "").lower() == "true"
 
+    if not dry_run and datetime.date.today().weekday() >= 5:
+        print("It's the weekend - skipping this run.")
+        return
+
     if mode in ("morning", "summary"):
         target_time = cfg["morning_time"] if mode == "morning" else cfg["summary_time"]
         if not dry_run and not in_time_window(target_time, cfg["timezone"], cfg["time_tolerance_minutes"]):
