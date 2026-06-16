@@ -209,11 +209,20 @@ def get_morning_trip_people(spreadsheet, today, alias_map, cutoff_time_minutes):
         return trip_people
 
     rows = with_retry(ws.get_all_values)
-    if not rows or len(rows) < 2:
+    if not rows:
         return trip_people
 
-    # Row 0 is the date label, row 1 is the actual header row
-    headers = [h.strip().lower() for h in rows[1]]
+    # Find the header row dynamically
+    header_row_idx = None
+    for i, row in enumerate(rows):
+        if any(h.strip().lower() == "event" for h in row):
+            header_row_idx = i
+            break
+
+    if header_row_idx is None:
+        return trip_people
+
+    headers = [h.strip().lower() for h in rows[header_row_idx]]
     try:
         time_idx = headers.index("time")
         signup_idx = headers.index("sign up")
@@ -221,7 +230,7 @@ def get_morning_trip_people(spreadsheet, today, alias_map, cutoff_time_minutes):
         return trip_people
 
     current_range = None
-    for row in rows[2:]:  # data starts at row 3 (index 2)
+    for row in rows[header_row_idx + 1:]:
         if len(row) <= max(time_idx, signup_idx):
             row = row + [""] * (max(time_idx, signup_idx) + 1 - len(row))
 
@@ -294,10 +303,19 @@ def get_day_schedule(spreadsheet, today, alias_map):
     if not rows:
         return []
 
-    # Row 0 is the date label (e.g. "Tuesday, June 16"), row 1 is the header
-    if len(rows) < 2:
+    # Find the header row dynamically - it's the first row containing 'event'
+    header_row_idx = None
+    for i, row in enumerate(rows):
+        if any(h.strip().lower() == "event" for h in row):
+            header_row_idx = i
+            break
+
+    if header_row_idx is None:
+        print("DEBUG: Could not find header row containing 'event'")
         return []
-    headers = [h.strip().lower() for h in rows[1]]
+
+    print(f"DEBUG: Header row at index {header_row_idx}")
+    headers = [h.strip().lower() for h in rows[header_row_idx]]
     print(f"DEBUG: Headers = {headers}")
     try:
         event_idx = headers.index("event")
@@ -320,7 +338,7 @@ def get_day_schedule(spreadsheet, today, alias_map):
     events = []
     current = None
 
-    for row in rows[2:]:  # data starts at row 3 (index 2)
+    for row in rows[header_row_idx + 1:]:  # data starts after header row
         if len(row) <= max_idx:
             row = row + [""] * (max_idx + 1 - len(row))
 
