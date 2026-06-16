@@ -184,10 +184,8 @@ def _find_today_worksheet(spreadsheet, today):
         f"{weekday_abbr} {today.day}".lower(),
         f"{today.strftime('%a')} {today.day}".lower(),
     }
-    print(f"DEBUG: Looking for tab matching {candidates}")
 
     all_tabs = with_retry(spreadsheet.worksheets)
-    print(f"DEBUG: Available tabs = {[ws.title for ws in all_tabs]}")
     for ws in all_tabs:
         if ws.title.strip().lower() in candidates:
             return ws
@@ -299,7 +297,6 @@ def get_day_schedule(spreadsheet, today, alias_map):
 
     print(f"DEBUG: Found worksheet '{ws.title}'")
     rows = with_retry(ws.get_all_values)
-    print(f"DEBUG: Got {len(rows)} rows")
     if not rows:
         return []
 
@@ -311,18 +308,14 @@ def get_day_schedule(spreadsheet, today, alias_map):
             break
 
     if header_row_idx is None:
-        print("DEBUG: Could not find header row containing 'event'")
         return []
 
-    print(f"DEBUG: Header row at index {header_row_idx}")
     headers = [h.strip().lower() for h in rows[header_row_idx]]
-    print(f"DEBUG: Headers = {headers}")
     try:
         event_idx = headers.index("event")
         time_idx = headers.index("time")
         signup_idx = headers.index("sign up")
-    except ValueError as e:
-        print(f"DEBUG: Missing required header - {e}")
+    except ValueError:
         return []
 
     transport_idx = headers.index("transportation") if "transportation" in headers else None
