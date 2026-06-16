@@ -209,10 +209,11 @@ def get_morning_trip_people(spreadsheet, today, alias_map, cutoff_time_minutes):
         return trip_people
 
     rows = with_retry(ws.get_all_values)
-    if not rows:
+    if not rows or len(rows) < 2:
         return trip_people
 
-    headers = [h.strip().lower() for h in rows[0]]
+    # Row 0 is the date label, row 1 is the actual header row
+    headers = [h.strip().lower() for h in rows[1]]
     try:
         time_idx = headers.index("time")
         signup_idx = headers.index("sign up")
@@ -220,7 +221,7 @@ def get_morning_trip_people(spreadsheet, today, alias_map, cutoff_time_minutes):
         return trip_people
 
     current_range = None
-    for row in rows[1:]:
+    for row in rows[2:]:  # data starts at row 3 (index 2)
         if len(row) <= max(time_idx, signup_idx):
             row = row + [""] * (max(time_idx, signup_idx) + 1 - len(row))
 
@@ -293,7 +294,10 @@ def get_day_schedule(spreadsheet, today, alias_map):
     if not rows:
         return []
 
-    headers = [h.strip().lower() for h in rows[0]]
+    # Row 0 is the date label (e.g. "Tuesday, June 16"), row 1 is the header
+    if len(rows) < 2:
+        return []
+    headers = [h.strip().lower() for h in rows[1]]
     print(f"DEBUG: Headers = {headers}")
     try:
         event_idx = headers.index("event")
@@ -316,7 +320,7 @@ def get_day_schedule(spreadsheet, today, alias_map):
     events = []
     current = None
 
-    for row in rows[1:]:
+    for row in rows[2:]:  # data starts at row 3 (index 2)
         if len(row) <= max_idx:
             row = row + [""] * (max_idx + 1 - len(row))
 
