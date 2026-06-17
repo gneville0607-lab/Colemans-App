@@ -165,10 +165,11 @@ def parse_time_range_to_minutes(text):
 
     if sampm is None:
         if sh == 12:
-            sampm = "pm"
+            sampm = "pm"  # 12:xx with no label = noon
+        elif eampm == "pm" and 1 <= sh <= 6:
+            sampm = "pm"  # 1-6 with no label + PM end = afternoon (e.g. 4:15-5:00 PM)
         else:
-            cand_am = _to_minutes(sh, sm, "am")
-            sampm = "am" if cand_am <= end_min else "pm"
+            sampm = "am"  # 7-11 with no label = morning
 
     start_min = _to_minutes(sh, sm, sampm)
     return start_min, end_min
@@ -248,8 +249,9 @@ def get_morning_trip_people(spreadsheet, today, alias_map, cutoff_time_minutes):
         if start_min >= cutoff_time_minutes:
             continue
 
-        for name_piece in re.split(r"[\n,]", signup_text):
-            name_piece = name_piece.strip()
+        for name_piece in signup_text.split(","):
+            # normalize internal newlines/whitespace to spaces before lookup
+            name_piece = re.sub(r"\s+", " ", name_piece).strip()
             if not name_piece:
                 continue
             matched = alias_map.get(normalize(name_piece))
@@ -352,8 +354,8 @@ def get_day_schedule(spreadsheet, today, alias_map):
 
         signup_text = row[signup_idx].strip()
         if signup_text and signup_text.upper() != "ALL" and current is not None:
-            for piece in re.split(r"[\n,]", signup_text):
-                piece = piece.strip()
+            for piece in signup_text.split(","):
+                piece = re.sub(r"\s+", " ", piece).strip()
                 if not piece:
                     continue
                 matched = alias_map.get(normalize(piece))
