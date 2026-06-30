@@ -7,7 +7,7 @@
 
   "timezone": "America/New_York",
   "morning_time": "09:30",
-  "summary_time": "09:50",
+  "summary_time": "09:48",
   "time_tolerance_minutes": 5,
 
   "reminder_channel_id": "1519926208534413384",
